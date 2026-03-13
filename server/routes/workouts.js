@@ -58,8 +58,8 @@ router.get('/', auth, async (req, res) => {
       }
     }
 
-    res.json({ 
-      workouts, 
+    res.json({
+      workouts,
       stats: {
         streak,
         totalRecent: recentWorkouts.length,
