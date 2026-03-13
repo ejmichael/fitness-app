@@ -155,10 +155,11 @@ router.post('/parse-voice', auth, async (req, res) => {
     }
     
     Rules:
-    1. If the weight unit isn't specified, assume kilograms if metric or pounds if imperial. Just return the number.
+    1. Assume ALL weights are in KILOGRAMS (kg). Just return the number.
     2. Be smart about recognizing multiple exercises and multiple sets. 
     3. If the transcript says "3 sets of 10", create 3 identical set objects.
-    4. Return ONLY the JSON. No markdown, no triple backticks.`;
+    4. If a weight is mentioned (e.g. "at 60", "with 60 kg", "60 kilograms"), capture it as the "weight".
+    5. Return ONLY the JSON. No markdown, no triple backticks.`;
 
     let parsedData;
     try {
@@ -184,10 +185,13 @@ router.post('/parse-voice', auth, async (req, res) => {
 function fallbackParseWorkout(transcript) {
   const text = transcript.toLowerCase().trim();
   const exercises = [];
+  // Split by common delimiters
   const segments = text.split(/\s*(?:,\s*and\s+|,\s*then\s+|\.\s+|,\s+|\s+then\s+|\s+and\s+)/i);
 
   for (const segment of segments) {
-    const pattern = /^(.+?)\s+(\d+)\s*sets?\s*(?:of\s*)?\s*(\d+)\s*(?:reps?)?\s*(?:(?:at|@)\s*(\d+(?:\.\d+)?))?/;
+    // Matches: "Exercise name 3 sets of 10 at 60", "Exercise 3 sets 10 reps @ 60kg", etc.
+    // Group 1: Name, Group 2: Sets, Group 3: Reps, Group 4: Weight
+    const pattern = /^(.+?)\s+(\d+)\s*sets?\s*(?:of\s*)?\s*(\d+)\s*(?:reps?)?\s*(?:(?:at|@|with)\s*)?(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms|lbs|pounds)?/i;
     const match = segment.trim().match(pattern);
 
     if (match) {
@@ -197,8 +201,12 @@ function fallbackParseWorkout(transcript) {
       const weight = match[4] ? parseFloat(match[4]) : 0;
       const sets = Array.from({ length: count }, () => ({ reps, weight }));
       exercises.push({ name: name.charAt(0).toUpperCase() + name.slice(1), sets });
-    } else if (segment.trim().length > 2) {
-      exercises.push({ name: segment.trim(), sets: [{ reps: 0, weight: 0 }] });
+    } else {
+      // Very basic fallback: name only
+      const name = segment.trim();
+      if (name.length > 2) {
+        exercises.push({ name: name.charAt(0).toUpperCase() + name.slice(1), sets: [{ reps: 0, weight: 0 }] });
+      }
     }
   }
 

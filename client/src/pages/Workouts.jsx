@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { Mic, MicOff, Plus, Trash2, Dumbbell, RefreshCcw } from 'lucide-react';
 import '../styles/Workouts.css';
@@ -15,6 +15,8 @@ const Workouts = () => {
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualText, setManualText] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const isManualStop = useRef(false);
+  const transcriptRef = useRef('');
 
   useEffect(() => {
     fetchWorkouts();
@@ -45,7 +47,8 @@ const Workouts = () => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript;
         }
-        setTranscript((prev) => currentTranscript);
+        setTranscript(currentTranscript);
+        transcriptRef.current = currentTranscript;
       };
 
       recog.onerror = (event) => {
@@ -56,6 +59,10 @@ const Workouts = () => {
 
       recog.onend = () => {
         setIsRecording(false);
+        // If it stopped unexpectedly (especially on mobile) and we have a transcript, process it
+        if (!isManualStop.current && transcriptRef.current.trim()) {
+          processTranscript(transcriptRef.current);
+        }
       };
 
       setRecognition(recog);
@@ -68,13 +75,16 @@ const Workouts = () => {
     if (!recognition) return;
 
     if (isRecording) {
+      isManualStop.current = true;
       recognition.stop();
       setIsRecording(false);
       if (transcript) {
         processTranscript(transcript);
       }
     } else {
+      isManualStop.current = false;
       setTranscript('');
+      transcriptRef.current = '';
       setError('');
       recognition.start();
       setIsRecording(true);
@@ -95,6 +105,7 @@ const Workouts = () => {
       
       setWorkouts([saveRes.data, ...workouts]);
       setTranscript('');
+      transcriptRef.current = '';
     } catch (err) {
       setError('Failed to process workout from voice');
     } finally {
@@ -152,7 +163,7 @@ const Workouts = () => {
             {isRecording ? 'Listening...' : 'Tap Mic to Log Workout'}
           </h3>
           <p className="voice-hint">
-            Say something like "Bench press 3 sets of 10 at 135 pounds, then Squats 4 sets of 8 at 225"
+            Say something like "Bench press 3 sets of 10 at 60 kg, then Squats 4 sets of 8 at 100"
           </p>
 
           {(transcript || parsing) && (
@@ -183,7 +194,7 @@ const Workouts = () => {
           <form className="card manual-input-card" onSubmit={handleManualSubmit}>
             <input 
               type="text" 
-              placeholder='Type workout (e.g. "Bench press 3 sets of 10 at 135 lbs")'
+              placeholder='Type workout (e.g. "Bench press 3 sets of 10 at 60 kg")'
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
               className="manual-text-input"
@@ -244,7 +255,7 @@ const Workouts = () => {
                               <div key={setIdx} className="set-row">
                                 <div className="set-number">{setIdx + 1}</div>
                                 <div className="set-value">{set.reps}</div>
-                                <div className="set-value">{set.weight > 0 ? `${set.weight} lbs` : '-'}</div>
+                                <div className="set-value">{set.weight > 0 ? `${set.weight} kg` : '-'}</div>
                               </div>
                             ))}
                           </div>
