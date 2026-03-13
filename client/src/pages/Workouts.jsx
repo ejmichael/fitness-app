@@ -96,12 +96,15 @@ const Workouts = () => {
     
     try {
       setParsing(true);
+      console.log('🗣️ Processing transcript:', text);
       const parseRes = await api.post('/workouts/parse-voice', { transcript: text });
+      console.log('🤖 AI Parsed Data:', parseRes.data);
       
       const saveRes = await api.post('/workouts', {
         name: parseRes.data.name || 'Voice Logged Workout',
         exercises: parseRes.data.exercises || []
       });
+      console.log('✅ Workout Saved:', saveRes.data);
       
       setWorkouts([saveRes.data, ...workouts]);
       setTranscript('');

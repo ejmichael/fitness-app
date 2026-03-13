@@ -157,20 +157,27 @@ router.post('/parse-voice', auth, async (req, res) => {
     Rules:
     1. Assume ALL weights are in KILOGRAMS (kg). Just return the number.
     2. Be smart about recognizing multiple exercises and multiple sets. 
-    3. If the transcript says "3 sets of 10", create 3 identical set objects.
+    3. If the transcript says "3 sets of 10", create 3 identical set objects in the "sets" array.
     4. If a weight is mentioned (e.g. "at 60", "with 60 kg", "60 kilograms"), capture it as the "weight".
-    5. Return ONLY the JSON. No markdown, no triple backticks.`;
+    5. Examples:
+       - "Bench press 3 sets of 10 at 60kg" -> { "name": "Bench Press", "exercises": [{ "name": "Bench Press", "sets": [{ "reps": 10, "weight": 60 }, { "reps": 10, "weight": 60 }, { "reps": 10, "weight": 60 }] }] }
+       - "Squats 4 by 8 with 100" -> { "name": "Squat Workout", "exercises": [{ "name": "Squats", "sets": [{ "reps": 8, "weight": 100 }, { "reps": 8, "weight": 100 }, { "reps": 8, "weight": 100 }, { "reps": 8, "weight": 100 }] }] }
+    6. Return ONLY the JSON. No markdown, no triple backticks.`;
 
+    console.log('🎙️ Incoming Transcript:', transcript);
     let parsedData;
     try {
       const result = await model.generateContent(prompt);
       const responseText = result.response.text().trim();
+      console.log('🤖 Raw AI Response:', responseText);
       const jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       parsedData = JSON.parse(jsonStr);
+      console.log('✅ Parsed Data:', JSON.stringify(parsedData, null, 2));
     } catch (aiError) {
-      console.warn("AI Parsing failed, using fallback:", aiError.message);
+      console.warn("❌ AI Parsing failed, using fallback:", aiError.message);
       // Fallback to basic parsing
       parsedData = fallbackParseWorkout(transcript);
+      console.log('⚠️ Fallback Data:', JSON.stringify(parsedData, null, 2));
     }
 
     res.json(parsedData);
